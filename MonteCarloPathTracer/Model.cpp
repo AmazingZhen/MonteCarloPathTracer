@@ -23,9 +23,10 @@ bool Model::loadModel(const std::string & filename)
 
 bool Model::intersect(const Ray & r, IntersectionInfo & info)
 {
-	float t, u, v, tmin = INT_MAX;
-	//return KDNode::intersect(kdtree, r, t, tmin, info);
+	float t, u, v, tmin = FLT_MAX;
+	return KDNode::intersect(kdtree, r, tmin, info);
 
+	/*
 	for (Triangle* tri : tris) if (tri->intersect(r, t, u, v) && t < tmin) {
 		tmin = t;
 
@@ -33,6 +34,7 @@ bool Model::intersect(const Ray & r, IntersectionInfo & info)
 	}
 
 	return info.hit;
+	*/
 }
 
 bool Model::initFromScene(const aiScene * pScene, const std::string & Filename)

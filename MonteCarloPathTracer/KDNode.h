@@ -7,111 +7,75 @@ struct KDNode
 {
 	KDNode(){};
 
-	static KDNode* build(const std::vector<Triangle*>& tris, int depth) {
+	static KDNode* build(std::vector<Triangle*> &tris, int depth) {
 		if (tris.empty()) {
 			return 0;
 		}
 		
 		KDNode *node = new KDNode();
-		node->tris = tris;
-		node->box = tris[0]->box;
 
 		if (tris.size() == 1) {
+			node->tri = tris[0];
+			node->box = tris[0]->box;
 			return node;
 		}
 
+		// Find longest axis;
+		node->box = tris[0]->box;
 		for (int i = 1; i < tris.size(); i++) {
 			node->box.expand(tris[i]->box);
 		}
-
-		glm::vec3 midPoint(0);
-		for (int i = 0; i < tris.size(); i++) {
-			midPoint += tris[i]->box.getMidPoint();
-		}
-		midPoint /= tris.size();
-
-		std::vector<Triangle*> left_tris, right_tris;
 		int axis = node->box.getLongestAxis();
-		for (Triangle* tri : tris) {
-			if (midPoint[axis] >= tri->box.getMidPoint()[axis]) {
-				left_tris.push_back(tri);
-			}
-			else {
-				right_tris.push_back(tri);
-			}
-		}
+		node->axis = axis;
 
-		if (left_tris.size() == 0 && right_tris.size() > 0) {
-			left_tris = right_tris;
-		}
+		// Find mid value
+		std::sort(tris.begin(), tris.end(), [axis](Triangle* a, Triangle* b) {
+			return a->box.getMidPoint()[axis] < b->box.getMidPoint()[axis];
+		});
+		int midPos = ((tris.size() % 2) ? tris.size() / 2 : tris.size() / 2 - 1);
+		node->tri = tris[midPos];
 
-		if (right_tris.size() == 0 && left_tris.size() > 0) {
-			right_tris = left_tris;
-		}
+		std::vector<Triangle*> left_tris(tris.begin(), tris.begin() + midPos),
+			right_tris(tris.begin() + midPos + 1, tris.end());
 
-		float matches = 0;
-		for (Triangle* tl : left_tris) {
-			for (Triangle* tr : right_tris) if (tl == tr){
-				matches++;
-			}
-		}
+		//printf("level %d : %d + %d = %d\n", depth,left_tris.size(), right_tris.size(), tris.size());
 
-		if (matches / left_tris.size() < 0.5 && matches / right_tris.size() < 0.5) {
+		if (!left_tris.empty()) {
 			node->left = build(left_tris, depth + 1);
+		}
+		
+		if (!right_tris.empty()) {
 			node->right = build(right_tris, depth + 1);
 		}
 
 		return node;
 	}
 
-	static bool intersect(KDNode *node, const Ray &ray, float &t, float &tmin, IntersectionInfo &info) {
-		if (!node) {
+	static bool intersect(KDNode *node, const Ray &ray, float &t_min, IntersectionInfo &info) {
+		if (!node || !node->box.intersect(ray)) {
 			return false;
 		}
 		
-		if (node->box.intersect(ray)) {
-			bool hitTriangle = false;
-			glm::vec3 intersectPoint, intersectNormal, localIntersectPoint;
+		bool intersectTriangle = false;
 
-			if (node->left || node->right) {
-				bool intersectLeft = intersect(node->left, ray, t, tmin, info);
-				bool intersectRight = intersect(node->right, ray, t, tmin, info);
+		float t, u, v;
+		if (node->tri->intersect(ray, t, u, v) && t < t_min) {
+			t_min = t;
+			node->tri->getSurfaceProperties(ray, t, u, v, info);
 
-				return intersectLeft || intersectRight;
-			}
-			else {  // reach a leaf node
-				float u, v;
-
-				for (Triangle *tri : node->tris) {
-					if (tri->intersect(ray, t, u, v)) {
-						hitTriangle = true;
-						info.hit = true;
-						tmin = t;
-						intersectPoint = info.point;
-						intersectNormal = info.normal;
-						localIntersectPoint = info.localPoint;
-					}
-				}
-
-				if (hitTriangle) {
-					info.hit = true;
-
-					info.point = intersectPoint;
-					info.normal = intersectNormal;
-					info.localPoint = localIntersectPoint;
-
-					return true;
-				}
-
-				return false;
-			}
+			intersectTriangle = true;
 		}
 
-		return false;
+		intersectTriangle |= intersect(node->left, ray, t_min, info);
+		intersectTriangle |= intersect(node->right, ray, t_min, info);
+
+		return intersectTriangle;
 	}
 
+	int axis = 0;
+
 	AABB box;
-	std::vector<Triangle*> tris;
+	Triangle* tri = 0;
 
 	KDNode *left = 0;
 	KDNode *right = 0;

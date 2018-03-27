@@ -13,7 +13,7 @@ struct PointLight
 	glm::vec3 color;
 	float intensity;
 
-	PointLight(const glm::vec3 &p, const glm::vec3 &c = glm::vec3(1), const float &i = 1) :
+	PointLight(const glm::vec3 &p, const glm::vec3 &c = glm::vec3(1), const float &i = 10) :
 		pos(p),
 		color(c),
 		intensity(i)
@@ -23,9 +23,9 @@ struct PointLight
 	void illuminate(const glm::vec3 &P, glm::vec3 &lightDir, glm::vec3 &lightIntensity) const
 	{
 		lightDir = (P - pos);
-		//float r2 = glm::dot(lightDir, lightDir);
+		float r2 = glm::dot(lightDir, lightDir);
 		// avoid division by 0
-		lightIntensity = color * intensity;// / (4 * M_PI * r2);
+		lightIntensity = color * intensity / (4 * M_PI * r2);
 		// printf("(%f, %f, %f)\n", lightIntensity.r, lightIntensity.g, lightIntensity.b);
 	}
 };
@@ -34,7 +34,7 @@ struct TracerOptions
 {
 	Model *model = 0;
 
-	int width = 800;
+	int width = 600;
 	int height = 600;
 	float fov = 70;
 	float zNear = 0.1;

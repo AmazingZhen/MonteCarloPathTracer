@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
 	options.eye = center + glm::vec3(0, 0, 1.5 * scale);
 	options.center = center;
 
-	PointLight light(glm::vec3(-1, 9.8, 1));
+	PointLight light(center);
 	options.lights.push_back(light);
 
 	MonteCarloPathTracer tracer(options);

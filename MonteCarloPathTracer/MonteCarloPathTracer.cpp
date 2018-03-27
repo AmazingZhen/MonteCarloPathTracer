@@ -31,7 +31,8 @@ void MonteCarloPathTracer::render()
 		fprintf(stderr, "\rRendering (%d spp) %5.2f%%", options.spp, 100.* row / (options.height - 1));
 		
 		for (int col = 0; col < options.width; col++) {
-			int i = (options.height - row - 1) * options.width + col;
+			//int i = (options.height - row - 1) * options.width + col;
+			int i = row * options.width + col;
 			glm::vec3 radiance = glm::vec3(0, 0, 0);
 
 			for (int s = 0; s < options.spp; s++) {
@@ -86,9 +87,6 @@ Ray MonteCarloPathTracer::screenPointToRay(int row, int col)
 
 glm::vec3 MonteCarloPathTracer::traceRadiance(const Ray &ray, int depth)
 {
-	//glm::vec3 hitColor = (r.d + glm::vec3(1)) * 0.5f;
-	//return hitColor;
-
 	IntersectionInfo info;
 
 	if (!intersect(ray, info)) {
@@ -96,6 +94,11 @@ glm::vec3 MonteCarloPathTracer::traceRadiance(const Ray &ray, int depth)
 	}
 
 	glm::vec3 directLight(0);
+	// Test ray casting.
+	//static const glm::vec3 cols[3] = { { 0.6, 0.4, 0.1 },{ 0.1, 0.5, 0.3 },{ 0.1, 0.3, 0.7 } };
+	//directLight += info.localPoint.x * cols[0] + info.localPoint.y * cols[1] + info.localPoint.z * cols[2];
+	//return directLight;
+
 	for (uint32_t i = 0; i < options.lights.size(); ++i) {
 		glm::vec3 lightDir, lightIntensity;
 
@@ -105,13 +108,12 @@ glm::vec3 MonteCarloPathTracer::traceRadiance(const Ray &ray, int depth)
 		IntersectionInfo shadowInfo;
 		if (!intersect(shadowRay, shadowInfo)) {
 			//printf("lightIntensity : (%f, %f, %f)\n", lightIntensity.r, lightIntensity.g, lightIntensity.b);
-			//directLight += lightIntensity * std::max(0.f, glm::dot(info.normal, -lightDir)) * info.mater->kd;
-			directLight += lightIntensity * info.mater->kd;
+
+			//directLight += info.localPoint.x * cols[0] + info.localPoint.y * cols[1] + info.localPoint.z * cols[2];
+			directLight += lightIntensity * std::max(0.f, glm::dot(info.normal, -lightDir)) * info.mater->kd;
+			//directLight += lightIntensity * info.mater->kd;
 
 			//printf("directLight : (%f, %f, %f)\n", directLight.r, directLight.g, directLight.b);
-
-			//int t;
-			//std::cin >> t;
 		}
 	}
 

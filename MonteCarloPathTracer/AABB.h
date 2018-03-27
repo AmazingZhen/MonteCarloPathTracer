@@ -36,20 +36,13 @@ public:
 
 	int getLongestAxis() {
 		glm::vec3 diff = bounds[1] - bounds[0];
-		float longestAxisValue = std::max(abs(diff.x),
-			std::max(abs(diff.y), abs(diff.z)));
+		float longestAxisValue = std::max(diff.x,
+			std::max(diff.y, diff.z));
 
 		for (int i = 0; i < diff.length(); i++) if (diff[i] == longestAxisValue) {
 			return i;
 		}
 	}
-
-	//得到对应坐标轴上的最小坐标
-	//inline float getMinCoord(int axis) { return low.num[axis]; }
-	//inline float getMaxCoord(int axis) { return high.num[axis]; }
-
-	//计算ray与AABB交点
-	// bool intersect(Ray& ray, Intersection& intersection);
 
 	bool intersect(const Ray &r) const
 	{
