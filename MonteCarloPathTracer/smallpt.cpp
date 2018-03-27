@@ -199,10 +199,11 @@ int main(int argc, char *argv[]) {
 	// camera 
 	glm::vec3 center = (m.getBoundingBox().bounds[0] + m.getBoundingBox().bounds[1]) / 2.f;
 	float scale = glm::length(m.getBoundingBox().bounds[0] - m.getBoundingBox().bounds[1]) / 2;
-	options.eye = center + glm::vec3(0, 0, 1.5 * scale);
-	options.center = center;
+	options.eye = center + glm::vec3(0, -.2f * scale, 1.5 * scale);
+	options.center = center + glm::vec3(0, -.2f * scale, 0);
 
 	PointLight light(center);
+	//PointLight light(glm::vec3(-1, 9.8, 1));
 	options.lights.push_back(light);
 
 	MonteCarloPathTracer tracer(options);

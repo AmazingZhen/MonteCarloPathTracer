@@ -47,7 +47,7 @@ struct TracerOptions
 	int spp = 1;  // samples per pixel
 
 	float bias = 0.0001;
-	int maxDepth = 2;
+	int maxDepth = 5;
 
 	glm::vec3 backgroundColor = glm::vec3(0, 0, 0);
 
@@ -68,10 +68,12 @@ public:
 
 private:
 	Ray screenPointToRay(int r, int c);
-	glm::vec3 traceRadiance(const Ray &ray, int depth);
-
+	glm::vec3 trace(const Ray &ray, int depth);
 	bool intersect(const Ray &r, IntersectionInfo &info);
+	glm::vec3 directLighting(IntersectionInfo &info);
 
+
+private:
 	TracerOptions options;
 
 	glm::mat4x4 camToWorld;

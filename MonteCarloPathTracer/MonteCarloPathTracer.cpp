@@ -45,7 +45,7 @@ void MonteCarloPathTracer::render()
 				std::cin >> t;
 				*/
 
-				radiance += traceRadiance(ray, 0);
+				radiance += trace(ray, 0);
 			}
 			radiance /= options.spp;
 			color[i] += glm::vec3(clamp(radiance.x), clamp(radiance.y), clamp(radiance.z));
@@ -85,7 +85,12 @@ Ray MonteCarloPathTracer::screenPointToRay(int row, int col)
 		, glm::vec3(camToWorld * glm::vec4(rayDirection, 0)));
 }
 
-glm::vec3 MonteCarloPathTracer::traceRadiance(const Ray &ray, int depth)
+float mix(const float &a, const float &b, const float &mix)
+{
+	return b * mix + a * (1 - mix);
+}
+
+glm::vec3 MonteCarloPathTracer::trace(const Ray &ray, int depth)
 {
 	IntersectionInfo info;
 
@@ -93,11 +98,67 @@ glm::vec3 MonteCarloPathTracer::traceRadiance(const Ray &ray, int depth)
 		return options.backgroundColor;
 	}
 
-	glm::vec3 directLight(0);
+	glm::vec3 surfaceLight(0);
 	// Test ray casting.
 	//static const glm::vec3 cols[3] = { { 0.6, 0.4, 0.1 },{ 0.1, 0.5, 0.3 },{ 0.1, 0.3, 0.7 } };
-	//directLight += info.localPoint.x * cols[0] + info.localPoint.y * cols[1] + info.localPoint.z * cols[2];
-	//return directLight;
+	//surfaceLight += info.localPoint.x * cols[0] + info.localPoint.y * cols[1] + info.localPoint.z * cols[2];
+	//return surfaceLight;
+
+	glm::vec3 directLight = directLighting(info);
+	surfaceLight += directLight;
+	if (depth == options.maxDepth) {
+		return surfaceLight;
+	}
+
+	const Material &mater = *(info.mater);
+
+	float bias = 1e-4; // add some bias to the point from which we will be tracing
+	bool inside = false;
+	glm::vec3 normal = info.normal;
+	if (glm::dot(ray.d, info.normal) > 0) {
+		normal = -normal;
+		inside = true;
+	}
+
+	if (mater.ni != 1.0) {  // we think this is glass
+		float facingratio = -glm::dot(ray.d, normal);
+
+		// change the mix value to tweak the effect
+		float fresneleffect = mix(pow(1 - facingratio, 3), 1, 0.1);
+		
+		glm::vec3 reflectDir = ray.d - normal * 2.f * glm::dot(ray.d, normal);
+		glm::normalize(reflectDir);
+		glm::vec3 reflectLight = trace(Ray(info.point + normal * bias, reflectDir), depth + 1);
+		
+		float ior = 1.1, eta = (inside) ? ior : 1 / ior; // are we inside or outside the surface?
+		float cosi = -glm::dot(ray.d, normal);
+		float k = 1 - eta * eta * (1 - cosi * cosi);
+		glm::vec3 refractDir = ray.d * eta + normal * (eta *  cosi - sqrt(k));
+		glm::normalize(refractDir);
+		glm::vec3 refractLight = trace(Ray(info.point - normal * bias, refractDir), depth + 1);
+
+		surfaceLight += reflectLight * fresneleffect
+			+ refractLight * (1 - fresneleffect);
+	}
+	else {
+		glm::vec3 reflectDir = ray.d - normal * 2.f * glm::dot(ray.d, normal);
+		glm::normalize(reflectDir);
+		glm::vec3 reflectLight = trace(Ray(info.point + normal * bias, reflectDir), depth + 1) * mater.ks;
+
+		surfaceLight += reflectLight;
+	}
+
+	return surfaceLight + mater.ke;
+}
+
+bool MonteCarloPathTracer::intersect(const Ray & r, IntersectionInfo & info)
+{
+	return options.model ? options.model->intersect(r, info) : false;
+}
+
+glm::vec3 MonteCarloPathTracer::directLighting(IntersectionInfo & info)
+{
+	glm::vec3 directLight(0);
 
 	for (uint32_t i = 0; i < options.lights.size(); ++i) {
 		glm::vec3 lightDir, lightIntensity;
@@ -118,10 +179,5 @@ glm::vec3 MonteCarloPathTracer::traceRadiance(const Ray &ray, int depth)
 	}
 
 	return directLight;
-}
-
-bool MonteCarloPathTracer::intersect(const Ray & r, IntersectionInfo & info)
-{
-	return options.model ? options.model->intersect(r, info) : false;
 }
 
