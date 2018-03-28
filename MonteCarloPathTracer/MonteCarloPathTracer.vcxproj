@@ -128,7 +128,7 @@
   <ItemGroup>
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="MonteCarloPathTracer.cpp" />
-    <ClCompile Include="smallpt.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AABB.h" />

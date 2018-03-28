@@ -26,6 +26,7 @@ struct PointLight
 		float r2 = glm::dot(lightDir, lightDir);
 		// avoid division by 0
 		lightIntensity = color * intensity / (4 * M_PI * r2);
+		glm::normalize(lightDir);
 		// printf("(%f, %f, %f)\n", lightIntensity.r, lightIntensity.g, lightIntensity.b);
 	}
 };
@@ -46,7 +47,7 @@ struct TracerOptions
 
 	int spp = 1;  // samples per pixel
 
-	float bias = 0.0001;
+	float bias = 1e-5;
 	int maxDepth = 5;
 
 	glm::vec3 backgroundColor = glm::vec3(0, 0, 0);
@@ -70,7 +71,7 @@ private:
 	Ray screenPointToRay(int r, int c);
 	glm::vec3 trace(const Ray &ray, int depth);
 	bool intersect(const Ray &r, IntersectionInfo &info);
-	glm::vec3 directLighting(IntersectionInfo &info);
+	glm::vec3 directLighting(const Ray &r, IntersectionInfo &info);
 
 
 private:

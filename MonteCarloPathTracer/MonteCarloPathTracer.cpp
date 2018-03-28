@@ -1,5 +1,8 @@
 #include "MonteCarloPathTracer.h"
 
+#include <random>
+std::default_random_engine generator;
+std::uniform_real_distribution<float> distribution(0, 1);
 
 inline float clamp(float x) { return x<0 ? 0 : x>1 ? 1 : x; }
 
@@ -90,29 +93,53 @@ float mix(const float &a, const float &b, const float &mix)
 	return b * mix + a * (1 - mix);
 }
 
+
+glm::vec3 uniformSampleHemisphere(const glm::vec3 &normal) {
+	glm::vec3 N, Nt, Nb;
+	N = normal;
+
+	if (std::fabs(N.x) > std::fabs(N.y))
+		Nt = glm::vec3(N.z, 0, -N.x) / sqrtf(N.x * N.x + N.z * N.z);
+	else
+		Nt = glm::vec3(0, -N.z, N.y) / sqrtf(N.y * N.y + N.z * N.z);
+	Nb = glm::cross(N, Nt);
+
+	float r1 = distribution(generator);
+	float r2 = distribution(generator);
+
+	float sinTheta = sqrtf(1 - r1 * r1);
+	float phi = 2 * M_PI * r2;
+	float x = sinTheta * cosf(phi);
+	float z = sinTheta * sinf(phi);
+	
+	glm::vec3 localRay(x, r1, z);
+
+	return glm::vec3(
+		localRay.x * Nb.x + localRay.y * N.x + localRay.z * Nt.x,
+		localRay.x * Nb.y + localRay.y * N.y + localRay.z * Nt.y,
+		localRay.x * Nb.z + localRay.y * N.z + localRay.z * Nt.z);
+}
+
 glm::vec3 MonteCarloPathTracer::trace(const Ray &ray, int depth)
 {
 	IntersectionInfo info;
 
-	if (!intersect(ray, info)) {
+	if (depth > options.maxDepth || !intersect(ray, info)) {
 		return options.backgroundColor;
 	}
 
-	glm::vec3 surfaceLight(0);
+	const Material &mater = *(info.mater);
+
+	glm::vec3 surfaceLight = mater.ke;
 	// Test ray casting.
 	//static const glm::vec3 cols[3] = { { 0.6, 0.4, 0.1 },{ 0.1, 0.5, 0.3 },{ 0.1, 0.3, 0.7 } };
 	//surfaceLight += info.localPoint.x * cols[0] + info.localPoint.y * cols[1] + info.localPoint.z * cols[2];
 	//return surfaceLight;
 
-	glm::vec3 directLight = directLighting(info);
+	glm::vec3 directLight = directLighting(ray, info);
 	surfaceLight += directLight;
-	if (depth == options.maxDepth) {
-		return surfaceLight;
-	}
 
-	const Material &mater = *(info.mater);
-
-	float bias = 1e-4; // add some bias to the point from which we will be tracing
+	//float bias = 1e-4; // add some bias to the point from which we will be tracing
 	bool inside = false;
 	glm::vec3 normal = info.normal;
 	if (glm::dot(ray.d, info.normal) > 0) {
@@ -128,27 +155,27 @@ glm::vec3 MonteCarloPathTracer::trace(const Ray &ray, int depth)
 		
 		glm::vec3 reflectDir = ray.d - normal * 2.f * glm::dot(ray.d, normal);
 		glm::normalize(reflectDir);
-		glm::vec3 reflectLight = trace(Ray(info.point + normal * bias, reflectDir), depth + 1);
+		glm::vec3 reflectLight = trace(Ray(info.point + normal * options.bias, reflectDir), depth + 1);
 		
-		float ior = 1.1, eta = (inside) ? ior : 1 / ior; // are we inside or outside the surface?
+		float ior = mater.ni, eta = (inside) ? ior : 1 / ior; // are we inside or outside the surface?
 		float cosi = -glm::dot(ray.d, normal);
 		float k = 1 - eta * eta * (1 - cosi * cosi);
 		glm::vec3 refractDir = ray.d * eta + normal * (eta *  cosi - sqrt(k));
 		glm::normalize(refractDir);
-		glm::vec3 refractLight = trace(Ray(info.point - normal * bias, refractDir), depth + 1);
+		glm::vec3 refractLight = trace(Ray(info.point - normal * options.bias, refractDir), depth + 1);
 
 		surfaceLight += reflectLight * fresneleffect
 			+ refractLight * (1 - fresneleffect);
 	}
-	else {
+	else if (glm::dot(mater.ks, mater.ks) > 0) {  // specular
 		glm::vec3 reflectDir = ray.d - normal * 2.f * glm::dot(ray.d, normal);
 		glm::normalize(reflectDir);
-		glm::vec3 reflectLight = trace(Ray(info.point + normal * bias, reflectDir), depth + 1) * mater.ks;
+		glm::vec3 reflectLight = trace(Ray(info.point + normal * options.bias, reflectDir), depth + 1) * mater.ks;
 
 		surfaceLight += reflectLight;
 	}
 
-	return surfaceLight + mater.ke;
+	return surfaceLight;
 }
 
 bool MonteCarloPathTracer::intersect(const Ray & r, IntersectionInfo & info)
@@ -156,25 +183,30 @@ bool MonteCarloPathTracer::intersect(const Ray & r, IntersectionInfo & info)
 	return options.model ? options.model->intersect(r, info) : false;
 }
 
-glm::vec3 MonteCarloPathTracer::directLighting(IntersectionInfo & info)
+glm::vec3 MonteCarloPathTracer::directLighting(const Ray &ray, IntersectionInfo &info)
 {
 	glm::vec3 directLight(0);
+
+	if (glm::dot(info.mater->kd, info.mater->kd) <= 0.f) {
+		return directLight;
+	}
 
 	for (uint32_t i = 0; i < options.lights.size(); ++i) {
 		glm::vec3 lightDir, lightIntensity;
 
-		options.lights[i].illuminate(info.point, lightDir, lightIntensity);
+		options.lights[i].illuminate(info.point + info.normal * options.bias, lightDir, lightIntensity);
 
-		Ray shadowRay(info.point, lightDir);
+		Ray shadowRay(info.point + info.normal * options.bias, -lightDir);
 		IntersectionInfo shadowInfo;
-		if (!intersect(shadowRay, shadowInfo)) {
-			//printf("lightIntensity : (%f, %f, %f)\n", lightIntensity.r, lightIntensity.g, lightIntensity.b);
+		intersect(shadowRay, shadowInfo);
+		float shadowDistance = 0, lightDistance = 0;
+		if (shadowInfo.hit) {
+			shadowDistance = glm::dot(shadowInfo.point - shadowRay.o, shadowInfo.point - shadowRay.o);
+			lightDistance = glm::dot(options.lights[i].pos - shadowRay.o, options.lights[i].pos - shadowRay.o);
+		}
 
-			//directLight += info.localPoint.x * cols[0] + info.localPoint.y * cols[1] + info.localPoint.z * cols[2];
+		if (!shadowInfo.hit || shadowDistance > lightDistance) {
 			directLight += lightIntensity * std::max(0.f, glm::dot(info.normal, -lightDir)) * info.mater->kd;
-			//directLight += lightIntensity * info.mater->kd;
-
-			//printf("directLight : (%f, %f, %f)\n", directLight.r, directLight.g, directLight.b);
 		}
 	}
 

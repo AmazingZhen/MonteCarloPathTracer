@@ -127,13 +127,13 @@ struct Triangle {
 	{
 		info.hit = true;
 
+		info.point = ray.o + t * ray.d;
+
+		/*
 		const glm::vec3 &v0 = mesh->vertices[indices[0]];
 		const glm::vec3 &v1 = mesh->vertices[indices[1]];
 		const glm::vec3 &v2 = mesh->vertices[indices[2]];
 
-		info.point = ray.o + t * ray.d;
-
-		/*
 		printf("v0 : (%f, %f, %f)\n", v0.x, v0.y, v0.z);
 		printf("v1 : (%f, %f, %f)\n", v1.x, v1.y, v1.z);
 		printf("v2 : (%f, %f, %f)\n", v2.x, v2.y, v2.z);
