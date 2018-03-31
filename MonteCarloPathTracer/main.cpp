@@ -75,21 +75,19 @@ void testTriangleIntersect() {
 	}
 }
 
-int main(int argc, char *argv[]) {
-	//testTriangleIntersect();
-
+void renderScene1() {
 	Model m;
-
 	m.loadModel("../scenes/scene01.obj");
 
 	TracerOptions options;
 	options.model = &m;
+	options.saveDir = "resScene1";
 
 	// camera 
-	glm::vec3 center = (m.getBoundingBox().bounds[0] + m.getBoundingBox().bounds[1]) / 2.f;
-	float scale = glm::length(m.getBoundingBox().bounds[0] - m.getBoundingBox().bounds[1]) / 2;
-	options.eye = center + glm::vec3(0, -.2f * scale, 1.5 * scale);
-	options.center = center + glm::vec3(0, -.2f * scale, 0);
+	glm::vec3 center = m.getBoundingBox().getMidPoint();
+	float scale = glm::length(m.getBoundingBox().bounds[1] - m.getBoundingBox().bounds[0]) / 2;
+	options.eye = center + glm::vec3(0, 0.f, 1.3f * scale);
+	options.center = center;//  +glm::vec3(0, -.2f * scale, 0);
 
 	PointLight light(center);
 	//PointLight light(glm::vec3(-1, 9.8, 1));
@@ -98,7 +96,40 @@ int main(int argc, char *argv[]) {
 	MonteCarloPathTracer tracer(options);
 
 	tracer.render();
-	tracer.save();
+	// tracer.save();
+}
+
+void renderScene2() {
+	Model m;
+	m.loadModel("../scenes/scene02.obj");
+
+	TracerOptions options;
+	options.model = &m;
+	options.width = 800;
+	options.height = 600;
+	options.saveDir = "resScene2";
+
+	// camera 
+	glm::vec3 center = m.getBoundingBox().getMidPoint();
+	center += glm::vec3(2, -1, 0);
+	// float scale = glm::length(m.getBoundingBox().bounds[1] - m.getBoundingBox().bounds[0]) / 2;
+	options.eye = center + glm::vec3(0, 2, 5);
+	options.center = center;//  +glm::vec3(0, -.2f * scale, 0);
+
+	PointLight light(center);
+	//PointLight light(glm::vec3(-1, 9.8, 1));
+	options.lights.push_back(light);
+
+	MonteCarloPathTracer tracer(options);
+
+	tracer.render();
+	// tracer.save();
+}
+
+int main(int argc, char *argv[]) {
+	renderScene2();
+
+	// renderScene1();
 
 	return 0;
 }
